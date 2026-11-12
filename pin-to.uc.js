@@ -57,7 +57,7 @@
     // Espace courant d'abord, puis ordre des espaces, puis alphabétique.
     const rank = it => (it.sp.s.uuid === current ? -1 : it.sp.i);
     items.sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, "fr"));
-    return { items, moves };
+    return { items, moves, here: info.get(current) };
   }
 
   // ---------- Action ----------
@@ -69,6 +69,15 @@
       if (!tab.pinned) gBrowser.pinTab(tab);
       if (changesSpace) gZenWorkspaces.moveTabToWorkspace(tab, target);
       it.g.addTabs([tab]);
+    } else if (it.kind === "create") {
+      if (!tab.pinned) gBrowser.pinTab(tab);
+      if (changesSpace) gZenWorkspaces.moveTabToWorkspace(tab, target);
+      const opts = { label: it.name, workspaceId: target };
+      if (it.parent) {
+        for (let p = it.parent; p; p = p.group) p.collapsed = false; // comme « Nouveau sous-dossier » de Zen
+        opts.insertAfter = it.parent.groupContainer.lastElementChild;
+      }
+      gZenFolders.createFolder([tab], opts);
     } else {
       gZenWorkspaces.moveTabToWorkspace(tab, target);
     }
@@ -89,7 +98,7 @@
   function open() {
     if (ui) return;
     const tab = gBrowser.selectedTab;
-    const { items, moves } = buildItems(tab);
+    const { items, moves, here } = buildItems(tab);
     const root = h("div", "position:fixed;inset:0;z-index:2147483647;display:flex;justify-content:center;" +
       "align-items:flex-start;padding-top:18vh;background:rgba(0,0,0,.25);color-scheme:light dark;");
     const box = h("div", "width:440px;max-width:90vw;background:Canvas;color:CanvasText;border-radius:12px;" +
@@ -97,7 +106,7 @@
     const input = h("input", "box-sizing:border-box;width:100%;padding:12px 14px;border:0;outline:none;" +
       "border-bottom:1px solid color-mix(in srgb,CanvasText 15%,transparent);background:transparent;" +
       "color:inherit;font:inherit;font-size:15px;");
-    input.placeholder = "Ranger dans…";
+    input.placeholder = "Ranger dans…   (parent/nom pour créer un sous-dossier)";
     // Barre « Déplacer vers » : un bouton par autre espace, raccourci ⌘1, ⌘2…
     const bar = h("div", "display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;" +
       "border-bottom:1px solid color-mix(in srgb,CanvasText 15%,transparent);font-size:12px;");
@@ -129,8 +138,27 @@
     };
 
     function render() {
-      const words = norm(input.value).split(/\s+/).filter(Boolean);
-      shown = items.filter(it => words.every(w => it.key.includes(w)));
+      const raw = input.value.trim();
+      const slash = raw.lastIndexOf("/");
+      let matches = [];
+      let creates = [];
+      if (slash >= 0) {
+        // « parent/nom » : nouveau sous-dossier dans un dossier existant.
+        const name = raw.slice(slash + 1).trim();
+        const pq = norm(raw.slice(0, slash)).split(/\s+/).filter(Boolean);
+        if (name) {
+          creates = items.filter(it => pq.every(w => it.key.includes(w))).slice(0, 6).map(p =>
+            ({ kind: "create", name, parent: p.g, sp: p.sp, label: `+ Nouveau dossier « ${name} » dans ${p.label}` }));
+        }
+      } else {
+        const words = norm(raw).split(/\s+/).filter(Boolean);
+        matches = items.filter(it => words.every(w => it.key.includes(w)));
+        const exists = items.some(it => it.sp === here && norm(it.g.label) === norm(raw));
+        if (raw && here && !exists) {
+          creates = [{ kind: "create", name: raw, parent: null, sp: here, label: `+ Nouveau dossier « ${raw} »` }];
+        }
+      }
+      shown = [...matches, ...creates];
       sel = Math.min(sel, Math.max(shown.length - 1, 0));
       list.replaceChildren();
       shown.forEach((it, i) => {
@@ -145,7 +173,7 @@
         row.addEventListener("click", () => run(it));
         list.append(row);
       });
-      say(shown.length ? "" : items.length ? "Aucun dossier ne correspond." : "Aucun dossier.");
+      say(shown.length ? "" : slash >= 0 ? "Aucun dossier parent ne correspond." : "Tapez un nom de dossier.");
       list.children[sel]?.scrollIntoView({ block: "nearest" });
     }
 
