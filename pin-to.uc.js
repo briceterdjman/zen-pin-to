@@ -50,15 +50,14 @@
       const path = folderPath(g);
       items.push({ kind: "folder", g, sp, label: path.join(" › "), key: norm(sp.s.name + " " + path.join(" ")) });
     }
-    for (const sp of info.values()) {
-      if (sp.s.uuid === tab.getAttribute("zen-workspace-id")) continue;
-      items.push({ kind: "space", sp, label: "Espace " + sp.s.name, key: norm("espace space " + sp.s.name) });
-    }
-    // Espace courant d'abord, puis ordre des espaces, dossiers avant espaces, puis alphabétique.
+    // Les autres espaces, affichés en permanence sous le champ (« Déplacer vers »).
+    const moves = [...info.values()]
+      .filter(sp => sp.s.uuid !== tab.getAttribute("zen-workspace-id"))
+      .map(sp => ({ kind: "space", sp }));
+    // Espace courant d'abord, puis ordre des espaces, puis alphabétique.
     const rank = it => (it.sp.s.uuid === current ? -1 : it.sp.i);
-    items.sort((a, b) =>
-      rank(a) - rank(b) || (a.kind === "space") - (b.kind === "space") || a.label.localeCompare(b.label, "fr"));
-    return items;
+    items.sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, "fr"));
+    return { items, moves };
   }
 
   // ---------- Action ----------
@@ -90,7 +89,7 @@
   function open() {
     if (ui) return;
     const tab = gBrowser.selectedTab;
-    const items = buildItems(tab);
+    const { items, moves } = buildItems(tab);
     const root = h("div", "position:fixed;inset:0;z-index:2147483647;display:flex;justify-content:center;" +
       "align-items:flex-start;padding-top:18vh;background:rgba(0,0,0,.25);color-scheme:light dark;");
     const box = h("div", "width:440px;max-width:90vw;background:Canvas;color:CanvasText;border-radius:12px;" +
@@ -99,9 +98,24 @@
       "border-bottom:1px solid color-mix(in srgb,CanvasText 15%,transparent);background:transparent;" +
       "color:inherit;font:inherit;font-size:15px;");
     input.placeholder = "Ranger dans…";
+    // Barre « Déplacer vers » : un bouton par autre espace, raccourci ⌘1, ⌘2…
+    const bar = h("div", "display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;" +
+      "border-bottom:1px solid color-mix(in srgb,CanvasText 15%,transparent);font-size:12px;");
+    bar.append(h("span", "opacity:.6;", "Déplacer vers"));
+    moves.forEach((it, i) => {
+      const chip = h("span", "display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;" +
+        "cursor:default;background:color-mix(in srgb,CanvasText 8%,transparent);");
+      chip.append(
+        h("span", `width:8px;height:8px;border-radius:50%;background:${it.sp.color};`),
+        h("span", "", it.sp.s.name),
+        h("span", "opacity:.45;", i < 9 ? "⌘" + (i + 1) : ""));
+      chip.addEventListener("click", () => run(it));
+      bar.append(chip);
+    });
+    if (!moves.length) bar.style.display = "none";
     const list = h("div", "max-height:360px;overflow-y:auto;padding:4px;");
     const msg = h("div", "padding:10px 14px;opacity:.7;display:none;");
-    box.append(input, list, msg);
+    box.append(input, bar, list, msg);
     root.append(box);
     document.body.append(root);
     ui = { root };
@@ -148,7 +162,9 @@
     input.addEventListener("input", () => { sel = 0; render(); });
     input.addEventListener("keydown", e => {
       const k = e.key;
-      if (k === "ArrowDown") sel = Math.min(sel + 1, shown.length - 1);
+      const n = e.metaKey && /^Digit[1-9]$/.test(e.code) ? +e.code.slice(5) : 0;
+      if (n) { if (moves[n - 1]) run(moves[n - 1]); }
+      else if (k === "ArrowDown") sel = Math.min(sel + 1, shown.length - 1);
       else if (k === "ArrowUp") sel = Math.max(sel - 1, 0);
       else if (k === "Enter") { if (shown[sel]) run(shown[sel]); }
       else if (k === "Escape") close();
