@@ -109,7 +109,7 @@
     input.placeholder = "Ranger dans…   (parent/nom pour créer un sous-dossier)";
     // Barre « Déplacer vers » : un bouton par autre espace, raccourci ⌘1, ⌘2…
     const bar = h("div", "display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px;" +
-      "border-bottom:1px solid color-mix(in srgb,CanvasText 15%,transparent);font-size:12px;");
+      "border-top:1px solid color-mix(in srgb,CanvasText 15%,transparent);font-size:12px;");
     bar.append(h("span", "opacity:.6;", "Déplacer vers"));
     moves.forEach((it, i) => {
       const chip = h("span", "display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:999px;" +
@@ -124,7 +124,7 @@
     if (!moves.length) bar.style.display = "none";
     const list = h("div", "max-height:360px;overflow-y:auto;padding:4px;");
     const msg = h("div", "padding:10px 14px;opacity:.7;display:none;");
-    box.append(input, bar, list, msg);
+    box.append(input, list, msg, bar);
     root.append(box);
     document.body.append(root);
     ui = { root };
