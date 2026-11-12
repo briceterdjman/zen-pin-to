@@ -25,12 +25,13 @@
 
   function folderPath(g) {
     const names = [];
-    for (let p = g; p?.isZenFolder; p = p.parentElement?.closest("tab-group")) names.unshift(p.label);
+    // Les dossiers Zen sont des <zen-folder> ; leur parent s'obtient par .group.
+    for (let p = g; p?.isZenFolder; p = p.group) names.unshift(p.label);
     return names;
   }
 
   function folderSpace(g) {
-    for (let p = g; p; p = p.parentElement?.closest("tab-group")) {
+    for (let p = g; p; p = p.group) {
       const id = p.getAttribute("zen-workspace-id");
       if (id) return id;
     }

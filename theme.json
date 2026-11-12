@@ -1,8 +1,8 @@
 {
   "name": "Zen Pin To",
   "description": "Palette « Pin to » façon Arc : range l'onglet courant dans un dossier (avec l'arborescence) ou un espace, au clavier (Option+Maj+P).",
-  "version": "0.1.0",
-  "updatedAt": "2026-11-10",
+  "version": "0.1.1",
+  "updatedAt": "2026-11-12",
   "scripts": {
     "pin-to.uc.js": {
       "include": ["chrome://browser/content/browser.xhtml"]
